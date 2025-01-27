@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "autoname": "autoincrement",
+ "creation": "2024-11-18 11:19:31.435258",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "id",
+  "child",
+  "milestone",
+  "category",
+  "task",
+  "status",
+  "date"
+ ],
+ "fields": [
+  {
+   "fieldname": "child",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Child",
+   "options": "Child",
+   "reqd": 1
+  },
+  {
+   "fieldname": "milestone",
+   "fieldtype": "Link",
+   "label": "Milestone",
+   "options": "Milestones",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Category",
+   "link_filters": "[[\"Category\",\"milestone\",\"=\",\"eval: doc.milestone\"]]",
+   "options": "Category",
+   "reqd": 1
+  },
+  {
+   "fieldname": "task",
+   "fieldtype": "Link",
+   "label": "Task",
+   "link_filters": "[[\"Task\",\"milestone\",\"=\",\"eval: doc.milestone\"],[\"Task\",\"category\",\"=\",\"eval: doc.category\"]]",
+   "options": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "1\n0",
+   "reqd": 1
+  },
+  {
+   "default": "Now",
+   "fieldname": "date",
+   "fieldtype": "Datetime",
+   "label": "Date?",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "id",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Id",
+   "non_negative": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-12-10 18:03:05.626418",
+ "modified_by": "Administrator",
+ "module": "Ezlarcare",
+ "name": "Progress",
+ "naming_rule": "Autoincrement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Parent",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "id"
+}

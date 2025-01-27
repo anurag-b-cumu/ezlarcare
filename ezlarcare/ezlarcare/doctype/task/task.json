@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "autoname": "autoincrement",
+ "creation": "2024-11-18 11:05:47.833820",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "id",
+  "title",
+  "author",
+  "milestone",
+  "category",
+  "description",
+  "exercise",
+  "games",
+  "articles",
+  "videos"
+ ],
+ "fields": [
+  {
+   "fieldname": "id",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Id"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "author",
+   "fieldtype": "Data",
+   "label": "Author"
+  },
+  {
+   "fieldname": "milestone",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Milestone",
+   "options": "Milestones",
+   "reqd": 1
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Category",
+   "link_filters": "[[\"Category\",\"milestone\",\"=\",\"eval: doc.milestone\"]]",
+   "options": "Category",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "articles",
+   "fieldtype": "Table",
+   "label": "Articles",
+   "options": "Task-Article"
+  },
+  {
+   "fieldname": "exercise",
+   "fieldtype": "Table",
+   "label": "Exercise",
+   "options": "Task-Article"
+  },
+  {
+   "fieldname": "games",
+   "fieldtype": "Table",
+   "label": "Game",
+   "options": "Task-Article"
+  },
+  {
+   "fieldname": "videos",
+   "fieldtype": "Table",
+   "label": "Video",
+   "options": "Task-Article"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-24 16:40:25.619854",
+ "modified_by": "Administrator",
+ "module": "Ezlarcare",
+ "name": "Task",
+ "naming_rule": "Autoincrement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Parent",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

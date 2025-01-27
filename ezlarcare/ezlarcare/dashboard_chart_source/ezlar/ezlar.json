@@ -1,0 +1,13 @@
+{
+ "creation": "2024-12-12 13:50:24.605310",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart Source",
+ "idx": 0,
+ "modified": "2024-12-12 13:50:24.605310",
+ "modified_by": "Administrator",
+ "module": "Ezlarcare",
+ "name": "ezlar",
+ "owner": "Administrator",
+ "source_name": "ezlar",
+ "timeseries": 1
+}

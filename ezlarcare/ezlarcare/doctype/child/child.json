@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-11-18 11:14:05.285584",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "id",
+  "firstname",
+  "lastname",
+  "picture",
+  "dateofbirth",
+  "weightonbirth",
+  "skills",
+  "activities"
+ ],
+ "fields": [
+  {
+   "fieldname": "firstname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "FirstName",
+   "reqd": 1
+  },
+  {
+   "fieldname": "lastname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "LastName",
+   "reqd": 1
+  },
+  {
+   "fieldname": "picture",
+   "fieldtype": "Attach",
+   "in_list_view": 1,
+   "label": "Picture",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dateofbirth",
+   "fieldtype": "Date",
+   "label": "DateOfBirth",
+   "reqd": 1
+  },
+  {
+   "fieldname": "weightonbirth",
+   "fieldtype": "Float",
+   "label": "WeightOnBirth",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "skills",
+   "fieldtype": "JSON",
+   "label": "Skills",
+   "reqd": 1
+  },
+  {
+   "fieldname": "activities",
+   "fieldtype": "JSON",
+   "label": "Activities",
+   "reqd": 1
+  },
+  {
+   "fieldname": "id",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Id",
+   "non_negative": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-11-18 14:03:52.909928",
+ "modified_by": "Administrator",
+ "module": "Ezlarcare",
+ "name": "Child",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Parent",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,493 @@
+import random, string, frappe
+from frappe.auth import LoginManager
+from datetime import datetime, timedelta
+from frappe.core.doctype.user.user import User
+from frappe.utils.password import update_password
+from yagmail import SMTP
+from frappe.utils import nowdate, getdate
+
+
+@frappe.whitelist()
+def current_milestone_1(child_id=None):
+    child = frappe.get_doc("Child", child_id)
+    child_dob = child.dateofbirth
+
+    # Calculate current age of the child in days
+    today = getdate(nowdate())
+    age_in_days = (today - getdate(child_dob)).days
+    print(age_in_days)
+
+    # Get milestones based on child's age
+    milestones = frappe.get_all('Milestones', filters={
+        'mindays': ['<=', age_in_days], 'maxdays':['>=', age_in_days]
+    }, fields=['title', 'name', 'mindays', 'maxdays'])
+
+    if not milestones:
+        return {"error": "No milestones found for the child's age."}
+
+    task_count = frappe.db.count('Task', filters={'milestone':milestones[0].name})
+    progress_count = frappe.db.count('Progress', filters={'milestone':milestones[0].name, 'child':child_id, 'status':'1'})
+
+    if progress_count == task_count:
+            milestones = frappe.get_all('Milestones', filters={
+                'mindays': ['=', (milestones[0].maxdays)+1]
+            }, fields=['title', 'name', 'mindays', 'maxdays'])
+
+    result = {"milestone":{}, "tasks":[]}
+
+    for milestone in milestones:
+        result["milestone"] = milestone
+
+    tasks = frappe.get_all('Task', filters={'milestone':milestones[0].name}, fields=['name', 'title', 'milestone', 'category', 'description'])
+    progress = frappe.get_all('Progress', filters={'milestone':milestones[0].name, 'child':child_id, 'status':'1'}, fields=['task'])
+    progress_list = [int(p.task) for p in progress]
+
+    for task in tasks:
+        if task.name not in progress_list:
+            task.category = frappe.get_doc('Category', task.category).title
+            result['tasks'].append(task)
+
+    return result
+
+
+
+
+@frappe.whitelist()
+def list_milestone(child_id=None):
+	milestones = frappe.get_all('Milestones', fields=['name', 'title', 'mindays', 'maxdays'])
+	if child_id:
+		child = frappe.get_doc("Child", child_id)
+		child_dob = child.dateofbirth
+
+    # Calculate current age of the child in days
+		today = getdate(nowdate())
+		age_in_days = (today - getdate(child_dob)).days
+
+		result = []
+		locked_m = []
+		for milestone in milestones:
+			obj = {
+				"name": milestone.name, "title" : milestone.title, "mindays" : milestone.mindays, "maxdays":milestone.maxdays, "category":[]
+			}
+			categories = frappe.get_all('Category', filters={'milestone':milestone.name}, fields=['name', 'milestone', 'title'])
+			obj['tasks'] = frappe.db.count('Task', {'milestone':milestone.name})
+			obj['completed'] = frappe.db.count('Progress', {'status':'1', 'milestone':milestone.name, 'child':child_id})
+			if (milestone.mindays > age_in_days):
+				locked_m.append(milestone.name)
+			for category in categories:
+				obj_new = {'name':category.name, 'title':category.title}
+				obj_new['tasks'] = frappe.db.count('Task', {'milestone':milestone.name, 'category':category.name})
+				obj_new['completed'] = frappe.db.count('Progress', {'status':'1', 'milestone':milestone.name, 'category':category.name, 'child':child_id})
+				obj['category'].append(obj_new)
+			result.append(obj)
+		for obj in result:
+			if obj['name'] in locked_m[0:len(locked_m)-1]:
+				obj['locked'] = True
+			else:
+				obj['locked'] = False
+		return result
+	else:
+		result = []
+		for milestone in milestones:
+			obj = {
+				"name": milestone.name, "title" : milestone.title, "mindays" : milestone.mindays, "maxdays":milestone.maxdays, "category":[]
+			}
+			categories = frappe.get_all('Category', filters={'milestone':milestone.name}, fields=['name', 'milestone', 'title'])
+			obj['tasks'] = frappe.db.count('Task', {'milestone':milestone.name})
+			for category in categories:
+				obj_new = {'name':category.name, 'title':category.title}
+				obj_new['tasks'] = frappe.db.count('Task', {'milestone':milestone.name, 'category':category.name})
+				obj['category'].append(obj_new)
+			result.append(obj)
+		return result
+
+@frappe.whitelist()
+def milestone_progress(child_id, milestone_id=None, category_id=None):
+    # Get the child's date of birth from the Child doctype
+    child = frappe.get_doc("Child", child_id)
+    child_dob = child.dateofbirth
+
+    # Calculate current age of the child in days
+    today = getdate(nowdate())
+    age_in_days = (today - getdate(child_dob)).days
+
+    # Get milestones based on child's age
+    if milestone_id:
+        print('milestone : ', milestone_id)
+        print('category : ', category_id)
+        milestones = frappe.get_all('Milestones', filters={'name':milestone_id}, fields=['title', 'name'])
+    else:
+        milestones = frappe.get_all('Milestones', filters={
+            'mindays': ['<=', age_in_days]
+        }, fields=['title', 'name'])
+
+    if not milestones:
+        return {"error": "No milestones found for the child's age."}
+
+    # Get all tasks associated with these milestones
+    milestone_ids = [milestone['name'] for milestone in milestones]
+    if milestone_id:
+        tasks_count = frappe.db.count('Task', filters={'milestone':['in', milestone_ids], 'category':category_id})
+        completed = frappe.db.count('Progress', filters={'status':'1', 'child': child_id, 'milestone':['in', milestone_ids], 'category':category_id})
+    else:
+        tasks_count = frappe.db.count('Task', filters={'milestone':['in', milestone_ids]})
+        completed = frappe.db.count('Progress', filters={'status':'1', 'child': child_id, 'milestone':['in', milestone_ids]})
+    if category_id:
+        tasks = frappe.get_all('Task', filters={'milestone': ['in', milestone_ids], 'category':category_id}, fields=['title', 'category', 'name','milestone', 'description'])
+    else:
+        tasks = frappe.get_all('Task', filters={'milestone': ['in', milestone_ids]}, fields=['title', 'category', 'name', 'milestone', 'description'])
+    progress = [int(prog.task) for prog in frappe.get_all('Progress', filters={'status':'1','child':child_id, 'milestone':['in', milestone_ids]}, fields=['task'])]
+
+    result = {'tasks':tasks_count, 'completed':completed}
+
+    if category_id:
+        result['pending']=[]
+    else:
+        result['pending'] = []
+        result['complete'] = []
+
+#    print(progress)
+
+    for task in tasks:
+        if category_id:
+            task['status'] = False
+            task['milestone'] = frappe.get_doc('Milestones', task.milestone)
+            if task.name in progress:
+                task['status'] = True
+            result['pending'].append(task)
+ #       print('task', type(task.name))
+        elif task.name not in progress:
+            task['milestone'] = frappe.get_doc('Milestones', task.milestone)
+            result['pending'].append(task)
+        else:
+            if not category_id:
+                task['milestone'] = frappe.get_doc('Milestones', task.milestone)
+                result['complete'].append(task)
+
+    result['pending'] = sorted(result['pending'], key=lambda task: task.get('status', None) != False)
+
+    return result
+
+@frappe.whitelist()
+def progress_graph(child_id):
+    # Get the child's date of birth from the Child doctype
+    child = frappe.get_doc("Child", child_id)
+    child_dob = child.dateofbirth
+
+    # Calculate current age of the child in days
+    today = getdate(nowdate())
+    age_in_days = (today - getdate(child_dob)).days
+
+    # Get milestones based on child's age
+    milestones = frappe.get_all('Milestones', filters={
+        'mindays': ['<=', age_in_days]
+    }, fields=['title', 'name'])
+
+    if not milestones:
+        return {"error": "No milestones found for the child's age."}
+
+    # Get all tasks associated with these milestones
+    milestone_ids = [milestone['name'] for milestone in milestones]
+    tasks = frappe.get_all('Task', filters={'milestone': ['in', milestone_ids]}, fields=['title', 'category', 'name'])
+
+    # Categorize tasks based on categories
+    categories = {
+        "Cognitive": [],
+        "Speech": [],
+        "Motor": [],
+        "Socio-Emotional": []
+    }
+
+    total_tasks = {category: 0 for category in categories}
+
+    for task in tasks:
+        category = frappe.get_doc("Category",  task['category'])
+        if category.title in categories:
+            categories[category.title].append(task)
+            total_tasks[category.title] += 1
+    print(categories)
+
+    # Calculate progress (completed tasks vs total tasks) for each category
+    progress_data = {}
+
+    # Get all progress records for the given child
+    progress_records = frappe.get_all('Progress', filters={'child': child_id, 'milestone': ['in', milestone_ids]}, fields=['name', 'task', 'category', 'milestone', 'status' ])
+
+    # Track completed tasks per category
+    completed_tasks = {category: 0 for category in categories}
+    print("records",progress_records)
+
+    for record in progress_records:
+        task = frappe.get_doc('Category', record['category'])
+        if record['status'] == '1':  # status 1 means completed
+            completed_tasks[task.title] += 1
+    print("total:", total_tasks)
+    print("completed:",completed_tasks)
+    avg = 0
+    # Calculate percentage for each category and remove categories with no tasks
+    for category in categories:
+        if total_tasks[category] > 0:
+            percentage = (completed_tasks[category] / max(completed_tasks[category], total_tasks[category])) * 100
+            progress_data[category] = {
+                'completed': completed_tasks[category],
+                'total': total_tasks[category],
+                'percentage': round(percentage, 2)
+            }
+            avg += round(percentage, 2)
+
+    progress_data['average'] = round(avg/4, 2)
+
+    return progress_data
+
+
+@frappe.whitelist(allow_guest=True)
+def update_user_password(email, new_password):
+	try:
+		update_password(user=email, pwd=new_password)
+		return {"status":"success", "message":"password updated successfully"}
+	except Exception as e:
+		return {"status":"error", "message":f'{e}'}
+
+@frappe.whitelist(allow_guest=True)
+def signup(email, first_name, password, last_name=None, roles=None):
+    if not email or not first_name or not password:
+        return {"status": "error", "message": "Email, First Name, and Password are required"}
+
+    # Check if the user already exists
+    existing_user = frappe.get_all("User", filters={"email": email})
+    if existing_user:
+        return {"status": "error", "message": "User with this email already exists"}
+    if roles==None:
+        roles=["Parent"]
+    # Create a new user document
+    user_doc = frappe.get_doc({
+        "doctype": "User",
+        "email": email,
+        "first_name": first_name,
+	"last_name":last_name,
+        "enabled": 1,
+        "new_password": password,
+        "roles": [{"role": role} for role in roles],
+    })
+
+    try:
+        # Insert the user document into the database
+        user_doc.insert(ignore_permissions=True)
+
+        update_password(user=email, pwd=password)
+
+        # Send welcome email or other post-signup actions can be triggered here.
+        #if user_doc:
+        #	generate_otp(email)
+#            subject="Welcome to our Platform",
+#            message="Hello, {}! Welcome to our platform.".format(first_name)
+#        )
+        
+        return {"status": "success", "message": "User created successfully", "user": user_doc, "key_details":generate_key(email)}
+
+    except Exception as e:
+        frappe.log_error(f"Error creating user: {str(e)}", "Custom Signup Error")
+        return {"status": "error", "message": "Error creating user: {}".format(str(e))}
+
+
+
+@frappe.whitelist(allow_guest=True)
+def get_unique_articles(n=4):
+    # Get today's date
+    current_date = datetime.now().date()
+
+    # Get the total number of articles in the database
+    articles = frappe.get_all('Article', fields=['name', 'title', 'author', 'image', 'url', 'description'])
+
+    # Ensure there are at least 4 articles in the database
+#    if len(articles) < int(n):
+ #       return "Not enough articles in the database"
+
+    # Calculate the day of the year to use as a base for selecting unique articles
+    day_of_year = current_date.timetuple().tm_yday
+
+    # Initialize the list of selected articles
+    selected_articles = []
+
+    # Select 4 unique articles for the day
+    for i in range(min(int(n), len(articles))):
+        # Calculate a unique index for each article
+        article_index = (day_of_year + i) % len(articles)
+
+        # Select the article based on the calculated index
+        selected_articles.append(articles[article_index])
+
+    # Return the list of selected articles
+    return selected_articles
+
+
+@frappe.whitelist(allow_guest=True)
+def get_unique_fact(n=4):
+    # Get today's date
+    current_date = datetime.now().date()
+
+    # Fetch all available facts from the database
+    facts = frappe.get_all('Do You Know', fields=['name', 'body'])
+
+    # Ensure there are at least 4 facts in the database
+ #   if len(facts) < int(n):
+#        return "Not enough facts in the database"
+
+    # Calculate the day of the year to use as a base for selecting unique facts
+    day_of_year = current_date.timetuple().tm_yday
+
+    selected_facts = []
+
+    for i in range(min(int(n), len(facts))):
+        # Calculate a unique index for each ar       fact_index = (day_of_year + i) % len(articles)
+        fact_index = (day_of_year + i) % len(facts)
+
+        # Select the article based on the calculated index
+        selected_facts.append(facts[fact_index])
+
+    # Calculate a unique index for each fact
+
+    # Return the list of selected facts
+    return selected_facts
+
+
+@frappe.whitelist(allow_guest = True)
+def customLogin(usr,pwd):
+	login_manager = LoginManager()
+	login_manager.authenticate(usr,pwd)
+	login_manager.post_login()
+#	print(frappe.response)
+	if frappe.response['message'] == 'Logged In' or 'No App':
+		user = login_manager.user
+#		print(user)
+		frappe.response['key_details'] = generate_key(user)
+		frappe.response['user_details'] = get_user_details(user)
+#		frappe.response['user_details']['childs'] = frappe.db.count('Child', {'owner':user})
+		child = frappe.get_all('Child', filters={'owner':user}, fields=['name'])
+		frappe.response['user_details']['childs'] = None if len(child) == 0 else child[0].name
+#			get_otp(frappe.response['user_details']['email'])
+#		except Exception as e:
+#			print(e)
+	else:
+		return False
+	
+def generate_key(user):
+	user_details = frappe.get_doc("User", user)
+	api_secret = api_key = ''
+	if not user_details.api_key and not user_details.api_secret:
+		api_secret = frappe.generate_hash(length=15)
+		api_key = frappe.generate_hash(length=15)
+		user_details.api_key = api_key
+		user_details.api_secret = api_secret
+		user_details.save(ignore_permissions = True)
+	else:
+		api_secret = user_details.get_password('api_secret')
+		api_key = user_details.get('api_key')
+	return {"api_secret": api_secret,"api_key": api_key}
+
+def get_user_details(user):
+	print(user)
+	user_details = frappe.get_all("User",filters={"name":user},fields=["name","first_name","last_name","email","mobile_no","gender","role_profile_name", "last_login"])
+	if user_details:
+		return user_details[0]
+
+@frappe.whitelist(allow_guest = True)
+def generate_otp(email):
+	otp = ''.join(random.choices(string.digits, k=4))
+	expiry_time = datetime.now() + timedelta(minutes=10)  # OTP valid for 10 minutes
+
+	otp_doc = frappe.get_all('OTP Management', filters={'email': email}, limit=1)
+	print(otp_doc)
+
+	if len(otp_doc) > 0:
+		otp_doc = frappe.get_doc('OTP Management', otp_doc[0].name)
+		otp = otp_doc.otp
+		otp_doc.expiry = expiry_time
+		otp_doc.save()
+		frappe.db.commit()
+	else:
+
+		frappe.get_doc({'doctype': 'OTP Management',
+	    		'email': email,
+		    	'otp': otp,
+		    	'expiry': expiry_time
+		}).insert(ignore_permissions=True)
+
+	    # Send OTP via email
+	send_otp_email(email, otp, 'Verification')
+
+@frappe.whitelist(allow_guest = True)
+def send_otp_email(email:str, otp:str, message:str=None):
+	yag = SMTP("devarshi.b@cumulations.com", "djxb pjtf knol niud")
+	if message:
+		yag.send(to=email, subject="OTP for ezlar", contents=f"OTP for {message} is {otp}")
+	else:
+		yag.send(to=email, subject="OTP for ezlar", contents=f"Your OTP is {otp}")
+
+
+@frappe.whitelist(allow_guest = True)
+def verify_otp(email, entered_otp):
+    # Fetch OTP details from the database
+	otp_doc = frappe.get_all('OTP Management', filters={'email': email}, fields=['otp', 'expiry', 'name'], order_by="creation desc", limit_page_length=1)
+	if not otp_doc:
+		return {'status': 'failure', 'message': 'OTP not found'}
+
+	otp_data = otp_doc[0]
+#	print(otp_data)
+	if datetime.now() > otp_data['expiry']:
+		frappe.delete_doc('OTP Management', otp_data['name'])
+		return {'status': 'failure', 'message': 'OTP has expired'}
+
+	if entered_otp != otp_data['otp']:
+		return {'status': 'failure', 'message': 'Invalid OTP'}
+	
+	frappe.delete_doc('OTP Management', otp_data['name'])
+
+	return {'status': 'success', 'message': 'OTP verified successfully'}
+
+
+@frappe.whitelist(allow_guest = True)
+def if_user_exists(email):
+	existing_user = frappe.get_all("User", filters={"email": email})
+	if existing_user:
+        	return {"status": "error", "message": "User with this email already exists"}
+	return {"status":"success", "message":"User with this email does not exists"}
+
+
+
+@frappe.whitelist(allow_guest=False)
+def get_user_details(email=None):
+    # Fetch user names and mobile numbers using get_list
+	if not email:
+		email = frappe.session.user
+	print(email)
+	users = frappe.get_list(
+        	'User',
+        fields=["first_name","last_name","full_name","mobile_no","email", "user_image", "last_login", "login_before", "login_after"],  # Specify fields
+        filters={"name":email }  # Filter active users if needed
+    	)
+	return users[0]
+
+
+@frappe.whitelist(allow_guest=False)
+def update_user_details(email,first_name=None,last_name=None,mobile_no=None, user_image=None):
+	users = frappe.get_doc('User',email)
+	if first_name!=None:
+		users.first_name=first_name
+	if last_name!=None:
+		users.last_name=last_name
+	if mobile_no!=None:
+		users.mobile_no=mobile_no
+	if user_image!= None:
+		users.user_image=user_image
+	users.save()
+	frappe.db.commit()
+	return {
+            "first_name": first_name,
+	    "last_name":last_name,
+            "email":email,
+            "mobile_no":mobile_no,
+	    "user_image":user_image
+        }
+
+
