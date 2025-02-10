@@ -23,7 +23,7 @@ def current_milestone_1(child_id=None):
     }, fields=['title', 'name', 'mindays', 'maxdays'])
 
     if not milestones:
-        return {"error": "No milestones found for the child's age."}
+        return {"error": f"No milestones found for the child's age. {age_in_days}"}
 
     task_count = frappe.db.count('Task', filters={'milestone':milestones[0].name})
     progress_count = frappe.db.count('Progress', filters={'milestone':milestones[0].name, 'child':child_id, 'status':'1'})
